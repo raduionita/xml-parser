@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">
+  <asset>
+    <created>2001-01-01T01:01:01Z</created>
+    <modified>2001-01-01T01:01:01Z</modified>
+  </asset>
+  <library_images>
+    <image id="Image">
+      <init_from>file:///Ambulance_Cabin_D.tga</init_from>
+    </image>
+    <image id="Image1">
+      <init_from>file:///Ambulance_Decals1_D.tga</init_from>
+    </image>
+    <image id="Image2">
+      <init_from>file:///Ambulance_Body_inside_D.tga</init_from>
+    </image>
+    <image id="Image3">
+      <init_from>file:///Ambulance_Glass_D.tga</init_from>
+    </image>
+    <image id="Image4">
+      <init_from>file:///Ambulance_Body_D.tga</init_from>
+    </image>
+    <image id="Image5">
+      <init_from>file:///Ambulance_Cabin_inside_D.tga</init_from>
+    </image>
+  </library_images>
+  <library_materials>
+    <material id="VisualMaterial" name="Ambulance_Cabin__Ambulance_Cabin_D_tga">
+      <instance_effect url="#Effect"/>
+      <extra>
+        <technique profile="FCOLLADA">
+          <user_properties>Ambulance_Cabin__Ambulance_Cabin_D_tga</user_properties>
+        </technique>
+      </extra>
+    </material>
+  </library_materials>
+  <library_effects>
+    <effect id="Effect" name="Ambulance_Cabin_D_tga">
+      <profile_COMMON>
+        <newparam sid="Image-surface">
+          <surface type="2D">
+            <init_from>Image</init_from>
+            <format>A8R8G8B8</format>
+          </surface>
+        </newparam>
+      </profile_COMMON>
+      <extra>
+        <technique profile="FCOLLADA">
+          <user_properties>Ambulance_Cabin_D.tga</user_properties>
+        </technique>
+      </extra>
+    </effect>
+  </library_effects>
+</COLLADA>
