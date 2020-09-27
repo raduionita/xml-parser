@@ -7,7 +7,7 @@
 # todo
 - cdata
 - comment
-- events while parsing (when parser encounters something)
+- ~~events while parsing (when parser encounters something)~~
 - custom indexing
 - optimization reading tags/attributes...
 - there are 2 findById methods, there should be only 1
