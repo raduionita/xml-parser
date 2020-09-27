@@ -1,5 +1,9 @@
 #include <iostream>
 #include <fstream>
+#include <functional>
+
+// #define USE_REFS 1
+// #define USE_EVENTS 1
 #include "xml.hpp"
 
 
@@ -57,7 +61,11 @@ int main() {
       throw std::string("failed to open");
     }
     
-    tree = sys::xml::parse(fs);
+    sys::xml::parser_t parser;
+    
+    parser.onElement("image",[](sys::xml::element_t* e) { std::cout << "element:" << e->name << std::endl; });
+    
+    tree = parser.read(fs);
     fs.close();
     
     std::cout << *tree << std::endl;

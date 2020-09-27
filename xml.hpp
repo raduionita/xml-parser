@@ -5,11 +5,13 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <functional>
 #include <map>
 #include <cstdio>
 #include <cstring>
 
-// #define USE_REF 1
+// #define USE_REFS 1
+// #define USE_EVENTS 1
 
 namespace sys::xml {
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,7 +41,7 @@ namespace sys::xml {
   struct attribute_t { 
     view_t    name; 
     view_t     value;
-#ifdef USE_REF
+#ifdef USE_REFS
     element_t* ref {nullptr};
 #endif // USE_REF
   };
@@ -117,6 +119,61 @@ namespace sys::xml {
     }
   };
   
+  struct event_t { };
+  
+  struct parser_t {
+    private:
+#ifdef USE_EVENTS
+    std::vector<std::function<void(element_t*)>>                        _on_element;
+    std::map<std::string, std::function<void(element_t*)>>              _on_element_name;
+    std::map<std::string, std::function<void(element_t*)>>              _on_id;
+#ifdef USE_REFS
+    std::map<std::string, std::function<void(attribute_t*,element_t*)>> _on_ref;
+#endif // USE_REF
+    std::map<std::string, std::function<void(attribute_t*,element_t*)>> _on_attribute;
+    std::map<std::string, std::function<void(attribute_t*,element_t*)>> _on_attribute_value;
+#endif // USE_REF
+    public:
+    // events
+    void onElement(std::function<void(element_t*)>&& f) {
+#ifdef USE_EVENTS
+      _on_element.push_back(std::move(f));
+#endif // USE_REF 
+    }
+    void onElement(const char* name, std::function<void(element_t*)>&& f) {
+#ifdef USE_EVENTS
+      _on_element_name.insert(std::pair{name, std::move(f)});
+#endif // USE_REF
+    }
+    void onId(const char* id, std::function<void(element_t*)>&& f) { 
+#ifdef USE_EVENTS
+      _on_id.insert(std::pair(id,std::move(f)));
+#endif // USE_REF
+    }
+    void onRef(const char* ref, std::function<void(attribute_t*,element_t*)>&& f) {
+#ifdef USE_EVENTS
+#ifdef USE_REFS
+      _on_ref.insert(std::pair(ref,std::move(f)));
+#endif // USE_REF
+#endif // USE_REF
+    }
+    void onAttribute(const char* attr, std::function<void(attribute_t*,element_t*)>&& f) {
+#ifdef USE_EVENTS
+      _on_attribute.insert(std::pair(attr, std::move(f)));
+#endif // USE_EVENTS
+    }
+    void onAttribute(const char* attr, const char* val, std::function<void(attribute_t*,element_t*)>&& f) {
+#ifdef USE_EVENTS
+      _on_attribute.insert(std::pair(std::string(attr).append(val), std::move(f)));
+#endif // USE_EVENTS
+    }
+
+    public:
+    // read
+    tree_t* read(std::fstream& fs, uint32_t flags = 0);
+    tree_t* read(const char* source, uint32_t flags = 0);
+  };
+  
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   
   std::ostream& operator <<(std::ostream& out, const tree_t& tree) {
@@ -182,7 +239,7 @@ namespace sys::xml {
   
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   
-  tree_t* parse(std::fstream& fs, uint32_t flags = 0) {
+  tree_t* parser_t::read(std::fstream& fs, uint32_t flags) {
     fs.seekg(0, fs.end);
     size_t len = fs.tellg();
     fs.seekg(0, fs.beg);
@@ -193,17 +250,17 @@ namespace sys::xml {
     
     src[len] = '\0';
     
-    return parse(src, flags | tree_t::OWNER);
+    return read(src, flags | tree_t::OWNER);
   }
   
-  tree_t* parse(const char* source, uint32_t flags = 0) {
+  tree_t* parser_t::read(const char* source, uint32_t flags) {
     tree_t*    tTree    = new tree_t;
     char* tPointer = tTree->source = const_cast<char*>(source);
     
     element_t* tCurrent = nullptr;
     element_t* tParent  = nullptr;
     
-#ifdef USE_REF
+#ifdef USE_REFS
     std::vector<attribute_t*> tRefs; // id=>element
 #endif // USE_REF
     
@@ -289,7 +346,7 @@ namespace sys::xml {
           
           tCurrent->attributes.push_back(tAttribute);
           
-#ifdef USE_REF
+#ifdef USE_REFS
           // find ref
           if (tAttribute.value.from[0] == '#') {
             // like source="#someid"
@@ -306,11 +363,25 @@ namespace sys::xml {
             
             tTree->index[&tCurrent->id] = tCurrent;
             
-#ifdef USE_REF
+#ifdef USE_EVENTS
+            for (auto it = _on_id.begin(); it != _on_id.end(); ++it) {
+              if (strncmp(it->first.c_str(), tAttribute.value.from, it->first.size()))
+                it->second(tCurrent);
+            }
+#endif // USE_EVENTS
+            
+#ifdef USE_REFS
             // fill refs
             for (auto it = tRefs.begin(); it != tRefs.end(); ++it) {
               if (strncmp((*it)->value.from+1, tAttribute.value.from, tAttribute.value.size)) {
                 (*it)->ref = tCurrent;
+#ifdef USE_EVENTS
+                for (auto jt = _on_ref.begin(); jt != _on_ref.end(); ++jt) {
+                  if (strncmp(jt->first.c_str(), tAttribute.value.from, jt->first.size())) {
+                    jt->second(&tCurrent->attributes.back(), tCurrent);
+                  }
+                }
+#endif // USE_EVENTS
               }
             }
 #endif // USE_REF
@@ -334,6 +405,16 @@ namespace sys::xml {
         
         // advance
         tPointer += i;
+        
+#ifdef USE_EVENTS
+        for (auto& f : _on_element) {
+          f(tCurrent);
+        }
+        for (auto it = _on_element_name.begin(); it != _on_element_name.end(); ++it) {
+          if (strncmp(it->first.c_str(), tCurrent->name.from, it->first.size())) 
+            it->second(tCurrent);
+        }
+#endif // USE_EVENTS
         
         // tag closes itself 
         if (tPointer[0] == '/') {
