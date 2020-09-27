@@ -164,10 +164,9 @@ namespace sys::xml {
     }
     void onAttribute(const char* attr, const char* val, std::function<void(attribute_t*,element_t*)>&& f) {
 #ifdef USE_EVENTS
-      _on_attribute.insert(std::pair(std::string(attr).append(val), std::move(f)));
+      _on_attribute_value.insert(std::pair(std::string(attr).append(val), std::move(f)));
 #endif // USE_EVENTS
     }
-
     public:
     // read
     tree_t* read(std::fstream& fs, uint32_t flags = 0);
@@ -333,39 +332,53 @@ namespace sys::xml {
         // if i cannot pass the length of the tag
         while((i + (j = alnumspn(tPointer + i/*until alphanum*/))) < nLength) { // attributes
           i += j;
-          attribute_t tAttribute;
+          
+          tCurrent->attributes.push_back({});
+          attribute_t* tAttribute = &tCurrent->attributes.back();
           
           // attribute // from when alpha num starts -> until =
-          tAttribute.name = {tPointer + i, charspn(tPointer + i, '=')};
+          tAttribute->name = {tPointer + i, charspn(tPointer + i, '=')};
           
-          i += tAttribute.name.size; 
+          i += tAttribute->name.size; 
           i += 2; // ="
           
           // attribute.value // from where we at, until "
-          tAttribute.value = {tPointer + i, charspn(tPointer + i, '"')};
+          tAttribute->value = {tPointer + i, charspn(tPointer + i, '"')};
           
-          tCurrent->attributes.push_back(tAttribute);
+#ifdef USE_EVENTS
+          for (auto it = _on_attribute.begin(); it != _on_attribute.end(); ++it) {
+            if (strncmp(it->first.c_str(), tAttribute->name.from, it->first.size())) {
+              it->second(tAttribute,tCurrent);
+            }
+          }
+          
+          for (auto it = _on_attribute_value.begin(); it != _on_attribute_value.end(); ++it) {
+            if (strncmp(it->first.c_str(), std::string(tAttribute->name.from, tAttribute->name.size).append(tAttribute->value.from, tAttribute->value.size).c_str(), it->first.size())) {
+              it->second(tAttribute,tCurrent);
+            }
+          }
+#endif // USE_EVENTS
           
 #ifdef USE_REFS
           // find ref
-          if (tAttribute.value.from[0] == '#') {
+          if (tAttribute->value.from[0] == '#') {
             // like source="#someid"
-            tAttribute.ref = tTree->findById(tAttribute.value);
-            if (tAttribute.ref == nullptr) {
-              tRefs.push_back(&tCurrent->attributes.back());
+            tAttribute->ref = tTree->findById(tAttribute->value);
+            if (tAttribute->ref == nullptr) {
+              tRefs.push_back(tAttribute);
             }
           }
 #endif // USE_REF
           
           // remeber element id=
-          if (strncmp(tAttribute.name.from, "id", 2)) {
-            tCurrent->id = tCurrent->attributes.back().value;
+          if (strncmp(tAttribute->name.from, "id", 2)) {
+            tCurrent->id = tAttribute->value;
             
             tTree->index[&tCurrent->id] = tCurrent;
             
 #ifdef USE_EVENTS
             for (auto it = _on_id.begin(); it != _on_id.end(); ++it) {
-              if (strncmp(it->first.c_str(), tAttribute.value.from, it->first.size()))
+              if (strncmp(it->first.c_str(), tAttribute->value.from, it->first.size()))
                 it->second(tCurrent);
             }
 #endif // USE_EVENTS
@@ -373,12 +386,12 @@ namespace sys::xml {
 #ifdef USE_REFS
             // fill refs
             for (auto it = tRefs.begin(); it != tRefs.end(); ++it) {
-              if (strncmp((*it)->value.from+1, tAttribute.value.from, tAttribute.value.size)) {
+              if (strncmp((*it)->value.from+1, tAttribute->value.from, tAttribute->value.size)) {
                 (*it)->ref = tCurrent;
 #ifdef USE_EVENTS
                 for (auto jt = _on_ref.begin(); jt != _on_ref.end(); ++jt) {
-                  if (strncmp(jt->first.c_str(), tAttribute.value.from, jt->first.size())) {
-                    jt->second(&tCurrent->attributes.back(), tCurrent);
+                  if (strncmp(jt->first.c_str(), tAttribute->value.from, jt->first.size())) {
+                    jt->second(tAttribute, tCurrent);
                   }
                 }
 #endif // USE_EVENTS
@@ -388,7 +401,7 @@ namespace sys::xml {
           }
           
           // pass end of value
-          i += tAttribute.value.size;
+          i += tAttribute->value.size;
           // pass "
           i += 1; 
         }

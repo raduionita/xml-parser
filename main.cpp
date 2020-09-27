@@ -2,8 +2,8 @@
 #include <fstream>
 #include <functional>
 
-// #define USE_REFS 1
-// #define USE_EVENTS 1
+#define USE_REFS 1
+#define USE_EVENTS 1
 #include "xml.hpp"
 
 
@@ -63,7 +63,7 @@ int main() {
     
     sys::xml::parser_t parser;
     
-    parser.onElement("image",[](sys::xml::element_t* e) { std::cout << "element:" << e->name << std::endl; });
+    parser.onAttribute("profile", "FCOLLADA",[](sys::xml::attribute_t*, sys::xml::element_t* e) { std::cout << "element:" << e->name << std::endl; });
     
     tree = parser.read(fs);
     fs.close();
